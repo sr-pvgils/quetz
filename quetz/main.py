@@ -1291,13 +1291,7 @@ def channel_search(
     return dao.search_channels(keywords, filters, user_id)
 
 
-@api_router.get("/api-keys", response_model=List[rest_models.ApiKey], tags=["API keys"])
-def get_api_keys(
-    dao: Dao = Depends(get_dao), auth: authorization.Rules = Depends(get_rules)
-):
-    """Get API keys for current user"""
-
-    user_id = auth.assert_user()
+def get_api_keys_handler(dao, user_id):
     user_role_keys, custom_role_keys = dao.get_api_keys_with_members(user_id)
 
     api_keys = []
@@ -1347,6 +1341,37 @@ def get_api_keys(
         )
 
     return api_keys
+
+
+@api_router.get("/api-keys", response_model=List[rest_models.ApiKey], tags=["API keys"])
+def get_api_keys(
+    dao: Dao = Depends(get_dao), auth: authorization.Rules = Depends(get_rules)
+):
+    """Get API keys for current user"""
+
+    user_id = auth.assert_user()
+    return get_api_keys_handler(dao, user_id)
+
+
+@api_router.get(
+    "/{username}/api-keys", response_model=List[rest_models.ApiKey], tags=["users"]
+)
+def get_user_api_keys(
+    username: str,
+    dao: Dao = Depends(get_dao),
+    auth: authorization.Rules = Depends(get_rules),
+):
+    """Get API keys for user"""
+
+    user = dao.get_user_by_username(username)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+    user_id = user.id
+
+    auth.assert_read_user_data(user_id)
+    return get_api_keys_handler(dao, user_id)
 
 
 @api_router.post(
